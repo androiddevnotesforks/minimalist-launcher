@@ -8,9 +8,9 @@
         android:excludeFromRecents="true"
         android:clearTaskOnLaunch="true"
         android:stateNotNeeded="true"
-        android:theme="@android:style/Theme.Black.NoTitleBar">
+        android:theme="@style/Theme.AppCompat.DayNight.NoActionBar">
 
-        <activity android:name=".MainActivity"
+        <activity android:name=".LauncherActivity"
             android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
