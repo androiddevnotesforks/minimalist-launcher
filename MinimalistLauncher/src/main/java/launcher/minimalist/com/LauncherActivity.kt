@@ -3,10 +3,13 @@ package launcher.minimalist.com
 import android.content.Intent
 import android.content.pm.ResolveInfo
 import android.os.Bundle
+import android.view.View
+import android.widget.TextClock
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.Text
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumnFor
 import androidx.compose.material.ListItem
@@ -21,9 +24,11 @@ import androidx.compose.ui.gesture.Direction
 import androidx.compose.ui.gesture.DragObserver
 import androidx.compose.ui.gesture.dragGestureFilter
 import androidx.compose.ui.gesture.longPressGestureFilter
+import androidx.compose.ui.gesture.scrollorientationlocking.Orientation
 import androidx.compose.ui.platform.ContextAmbient
 import androidx.compose.ui.platform.setContent
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.viewinterop.viewModel
 import androidx.lifecycle.ViewModel
 import java.util.*
@@ -61,17 +66,15 @@ private fun ShowBodyContent(screenState: MutableState<LauncherScreen>, launcherA
 
 @Composable
 fun HomeContent(screenState: MutableState<LauncherScreen>, launcherActivity: LauncherActivity, homeViewModel: HomeViewModel) {
-    val dragObserver: DragObserver = object : DragObserver {
-        override fun onDrag(dragDistance: Offset): Offset {
-            if (dragDistance.x < 10f) {
-                screenState.value = LauncherScreen.DRAWER
-            }
-            return super.onDrag(dragDistance)
-        }
-    }
-
     Box(modifier = Modifier.fillMaxSize()
-            .dragGestureFilter(dragObserver = dragObserver, canDrag = { it == Direction.LEFT })) {
+            .draggable(
+                    orientation = Orientation.Horizontal,
+                    canDrag = { it == Direction.LEFT },
+                    onDrag = {
+                        screenState.value = LauncherScreen.DRAWER
+                    }
+            )) {
+
 
         Surface(modifier = Modifier.fillMaxWidth().fillMaxHeight(1 / 2f).align(Alignment.Center)) {
             Column(modifier = Modifier.padding(horizontal = 30.dp)) {
@@ -89,19 +92,17 @@ fun HomeContent(screenState: MutableState<LauncherScreen>, launcherActivity: Lau
                 }
             }
         }
+
+        Surface(modifier = Modifier.fillMaxWidth().fillMaxHeight(1 / 4f).align(Alignment.TopCenter)) {
+            AndroidView(viewBlock = { context ->
+                return@AndroidView View.inflate(context, R.layout.text_clock, null)
+            }, modifier = Modifier.padding(horizontal = 30.dp, vertical = 20.dp))
+        }
     }
 }
 
 @Composable
 fun DrawerContent(screenState: MutableState<LauncherScreen>, launcherActivity: LauncherActivity, homeViewModel: HomeViewModel) {
-    val dragObserver: DragObserver = object : DragObserver {
-        override fun onDrag(dragDistance: Offset): Offset {
-            if (dragDistance.x < 10f) {
-                screenState.value = LauncherScreen.HOME
-            }
-            return super.onDrag(dragDistance)
-        }
-    }
     val appList by remember { mutableStateOf(mutableListOf<LauncherApplication>()) }
     fetchAppList(appList, launcherActivity)
 
@@ -110,12 +111,14 @@ fun DrawerContent(screenState: MutableState<LauncherScreen>, launcherActivity: L
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumnFor(items = appList, modifier = Modifier.fillMaxWidth()
                 .padding(horizontal = 16.dp)
-                .dragGestureFilter(
-                        dragObserver = dragObserver,
-                        canDrag = {
-                            it == Direction.RIGHT
+                .draggable(
+                        orientation = Orientation.Horizontal,
+                        canDrag = { it == Direction.RIGHT },
+                        onDrag = {
+                            screenState.value = LauncherScreen.HOME
                         }
-                )) {
+                )
+        ) {
             ListItem(modifier = Modifier
                     .fillMaxWidth()
                     .clickable(onClick = {
