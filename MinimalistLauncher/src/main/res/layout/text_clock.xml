@@ -5,4 +5,4 @@
     android:format12Hour="hh:mm a"
     android:id="@+id/textClock"
     android:textSize="36sp"
-    android:textColor="@android:color/black"/>
+    android:textColor="@android:color/white"/>

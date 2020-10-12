@@ -8,6 +8,7 @@
         android:excludeFromRecents="true"
         android:clearTaskOnLaunch="true"
         android:stateNotNeeded="true"
+        android:name=".MinimalLauncherApplication"
         android:theme="@style/Theme.AppCompat.DayNight.NoActionBar">
 
         <activity android:name=".LauncherActivity"

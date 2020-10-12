@@ -4,10 +4,15 @@ import android.content.Intent
 import android.content.pm.ResolveInfo
 import android.os.Bundle
 import android.view.View
-import android.widget.TextClock
 import android.widget.Toast
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.Transition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideIn
 import androidx.compose.foundation.Text
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.layout.*
@@ -21,94 +26,118 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.gesture.Direction
-import androidx.compose.ui.gesture.DragObserver
-import androidx.compose.ui.gesture.dragGestureFilter
 import androidx.compose.ui.gesture.longPressGestureFilter
 import androidx.compose.ui.gesture.scrollorientationlocking.Orientation
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.ContextAmbient
+import androidx.compose.ui.platform.HapticFeedBackAmbient
 import androidx.compose.ui.platform.setContent
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.viewinterop.viewModel
-import androidx.lifecycle.ViewModel
+import dagger.hilt.android.AndroidEntryPoint
 import java.util.*
 
+@AndroidEntryPoint
 class LauncherActivity : AppCompatActivity() {
+    private val homeViewModel: HomeViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         setContent {
-            val screenState = remember { mutableStateOf(LauncherScreen.DRAWER) }
+            val screenState = remember { mutableStateOf(LauncherScreen.HOME) }
             Scaffold(
                     bodyContent = {
-                        ShowBodyContent(screenState = screenState, launcherActivity = this@LauncherActivity)
+                        ShowBodyContent(screenState = screenState, launcherActivity = this@LauncherActivity, homeViewModel = homeViewModel)
                     }
             )
         }
     }
-
 }
 
 @Composable
-private fun ShowBodyContent(screenState: MutableState<LauncherScreen>, launcherActivity: LauncherActivity) {
-    val homeViewModel: HomeViewModel = viewModel(HomeViewModel::class.java)
+private fun ShowBodyContent(screenState: MutableState<LauncherScreen>, launcherActivity: LauncherActivity, homeViewModel: HomeViewModel) {
+    val appList by remember { mutableStateOf(mutableListOf<LauncherApplication>()) }
+    fetchAppList(appList, launcherActivity)
 
     when (screenState.value) {
         LauncherScreen.HOME -> {
-            HomeContent(screenState = screenState, launcherActivity = launcherActivity, homeViewModel = homeViewModel)
+//            Crossfade(current = screenState.value, animation = tween(1000)) {
+                HomeContent(screenState = screenState, launcherActivity = launcherActivity, homeViewModel = homeViewModel, appList = appList)
+//            }
         }
         LauncherScreen.DRAWER -> {
-            DrawerContent(screenState = screenState, launcherActivity = launcherActivity, homeViewModel = homeViewModel)
+//            Crossfade(current = screenState.value, animation = tween(1000)) {
+            DrawerContent(screenState = screenState, launcherActivity = launcherActivity, homeViewModel = homeViewModel, appList = appList)
+//            }
         }
     }
-
 }
 
 @Composable
-fun HomeContent(screenState: MutableState<LauncherScreen>, launcherActivity: LauncherActivity, homeViewModel: HomeViewModel) {
-    Box(modifier = Modifier.fillMaxSize()
+fun HomeContent(screenState: MutableState<LauncherScreen>, launcherActivity: LauncherActivity, homeViewModel: HomeViewModel, appList: MutableList<LauncherApplication>) {
+    val context = ContextAmbient.current
+    val hapticFeedback = HapticFeedBackAmbient.current
+
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)
             .draggable(
                     orientation = Orientation.Horizontal,
                     canDrag = { it == Direction.LEFT },
                     onDrag = {
                         screenState.value = LauncherScreen.DRAWER
                     }
-            )) {
+            ).longPressGestureFilter { _: Offset ->
+                Toast.makeText(context, "Launch Settings", Toast.LENGTH_SHORT).show()
+            }) {
 
 
-        Surface(modifier = Modifier.fillMaxWidth().fillMaxHeight(1 / 2f).align(Alignment.Center)) {
+        Surface(modifier = Modifier.fillMaxWidth().fillMaxHeight(1 / 2f).align(Alignment.Center), color = Color.Black) {
             Column(modifier = Modifier.padding(horizontal = 30.dp)) {
-                homeViewModel.favoriteApps.forEach {
-                    Text(
-                            text = it.appName,
-                            style = MaterialTheme.typography.h4,
-                            modifier = Modifier
-                                    .clickable(
-                                            onClick = {
-                                                launcherActivity.startActivity(launcherActivity.packageManager.getLaunchIntentForPackage(it.packageName))
-                                            })
-                                    .padding(vertical = 16.dp)
-                    )
+                if (homeViewModel.favoriteApps.isEmpty()) {
+                    Text(text = "Swipe right and long press\non 5 apps! \n\n\n -->", style = MaterialTheme.typography.h6, color = Color.White)
+                } else {
+                    homeViewModel.favoriteApps.forEach { appName ->
+                        Text(
+                                text = appName,
+                                style = MaterialTheme.typography.h4,
+                                color = Color.White,
+                                modifier = Modifier
+                                        .clickable(
+                                                onClick = {
+                                                    val app = appList.find { it.appName == appName }
+                                                    launcherActivity.startActivity(launcherActivity.packageManager.getLaunchIntentForPackage(app!!.packageName))
+                                                })
+                                        .padding(vertical = 16.dp)
+                                        .longPressGestureFilter { _: Offset ->
+                                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            homeViewModel.removeFavorite(appName)
+                                        }
+                        )
+                    }
                 }
+
             }
         }
 
-        Surface(modifier = Modifier.fillMaxWidth().fillMaxHeight(1 / 4f).align(Alignment.TopCenter)) {
+        Surface(modifier = Modifier.fillMaxWidth().fillMaxHeight(1 / 4f).align(Alignment.TopCenter), color = Color.Black) {
             AndroidView(viewBlock = { context ->
                 return@AndroidView View.inflate(context, R.layout.text_clock, null)
             }, modifier = Modifier.padding(horizontal = 30.dp, vertical = 20.dp))
+        }
+
+        Surface(modifier = Modifier.fillMaxWidth().fillMaxHeight(1 / 4f).align(Alignment.BottomCenter), color = Color.Black) {
+
         }
     }
 }
 
 @Composable
-fun DrawerContent(screenState: MutableState<LauncherScreen>, launcherActivity: LauncherActivity, homeViewModel: HomeViewModel) {
-    val appList by remember { mutableStateOf(mutableListOf<LauncherApplication>()) }
-    fetchAppList(appList, launcherActivity)
-
+fun DrawerContent(screenState: MutableState<LauncherScreen>, launcherActivity: LauncherActivity, homeViewModel: HomeViewModel, appList: MutableList<LauncherApplication>) {
     val context = ContextAmbient.current
+    val hapticFeedback = HapticFeedBackAmbient.current
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         LazyColumnFor(items = appList, modifier = Modifier.fillMaxWidth()
                 .padding(horizontal = 16.dp)
                 .draggable(
@@ -125,10 +154,15 @@ fun DrawerContent(screenState: MutableState<LauncherScreen>, launcherActivity: L
                         launcherActivity.startActivity(launcherActivity.packageManager.getLaunchIntentForPackage(it.packageName))
                     })
                     .longPressGestureFilter { _: Offset ->
-                        homeViewModel.addFavoriteApp(it)
-                        Toast.makeText(context, "Favorite Added", Toast.LENGTH_SHORT).show()
+                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                        if (appList.size == 5) {
+                            Toast.makeText(context, "Only 5 Apps Allowed", Toast.LENGTH_SHORT).show()
+                        } else {
+                            homeViewModel.addFavoriteApp(it)
+                            Toast.makeText(context, "Favorite Added", Toast.LENGTH_SHORT).show()
+                        }
                     }) {
-                Text(text = it.appName)
+                Text(text = it.appName, color = Color.White)
             }
         }
     }
@@ -154,19 +188,6 @@ fun fetchAppList(appList: MutableList<LauncherApplication>, launcherActivity: La
     }
 }
 
-data class LauncherApplication(val appName: String, val packageName: String)
-
 enum class LauncherScreen {
     HOME, DRAWER
-}
-
-class HomeViewModel : ViewModel() {
-
-    var favoriteApps: List<LauncherApplication> by mutableStateOf(listOf())
-
-    //TODO Store in DB
-    fun addFavoriteApp(app: LauncherApplication) {
-        favoriteApps = favoriteApps + listOf(app)
-    }
-
 }
