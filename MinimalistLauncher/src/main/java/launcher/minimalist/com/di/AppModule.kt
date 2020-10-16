@@ -7,6 +7,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.components.ApplicationComponent
 import dagger.hilt.android.qualifiers.ApplicationContext
 import launcher.minimalist.com.HomeRepository
+import launcher.minimalist.com.network.WeatherApi
 import javax.inject.Singleton
 
 @InstallIn(ApplicationComponent::class)
@@ -17,8 +18,10 @@ class AppModule {
     @Singleton
     fun provideHomeRepository(
             @ApplicationContext context: Context,
+            weatherApi: WeatherApi,
     ): HomeRepository =
             HomeRepository(
                     context,
+                    weatherApi
             )
 }
