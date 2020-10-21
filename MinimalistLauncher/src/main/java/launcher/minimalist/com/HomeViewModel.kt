@@ -44,5 +44,11 @@ class HomeViewModel @ViewModelInject constructor(
         }
     }
 
+    fun saveTheme(themeName : String){
+        homeRepository.saveTheme(themeName)
+    }
+
+    fun getTheme() = homeRepository.getTheme()
+
     fun getZipCode() = homeRepository.getZipCode()
 }

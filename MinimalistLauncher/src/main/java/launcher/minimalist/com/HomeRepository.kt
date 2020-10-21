@@ -60,4 +60,10 @@ class HomeRepository @Inject constructor(
     fun getZipCode(): String {
         return preferences.getString("zipCode", "")!!
     }
+
+    fun saveTheme(themeName : String) {
+        preferences.edit().putString("theme", themeName).apply()
+    }
+
+    fun getTheme() = preferences.getString("theme", "Black")
 }

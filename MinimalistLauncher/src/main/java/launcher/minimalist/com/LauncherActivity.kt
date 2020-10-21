@@ -37,10 +37,10 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import launcher.minimalist.com.theme.MinimalLauncherBlueDarkPalette
 import launcher.minimalist.com.theme.MinimalLauncherTheme
 import launcher.minimalist.com.theme.listOfColorPalette
 import dagger.hilt.android.AndroidEntryPoint
+import launcher.minimalist.com.theme.listOfTypes
 import java.time.LocalDate
 import java.util.*
 import kotlin.math.roundToInt
@@ -56,24 +56,32 @@ class LauncherActivity : AppCompatActivity() {
 
         setContent {
             val screenState = remember { mutableStateOf(LauncherScreen.HOME) }
-            val colorPalette = remember { mutableStateOf(MinimalLauncherBlueDarkPalette) }
+            val colorPalette = remember { mutableStateOf(listOfColorPalette.find { it.themeName == homeViewModel.getTheme() }!!.themeColors) }
+            val typography = remember { mutableStateOf(listOfTypes[0].typography) }
 
-            MinimalLauncherTheme(colors = colorPalette.value) {
+            MinimalLauncherTheme(colors = colorPalette.value, type = typography.value) {
                 Scaffold(
                         bodyContent = {
-                            ShowBodyContent(screenState = screenState, launcherActivity = this@LauncherActivity, homeViewModel = homeViewModel, colorPalette)
+                            ShowBodyContent(screenState = screenState, launcherActivity = this@LauncherActivity, homeViewModel = homeViewModel, colorPalette, typography)
                         }
                 )
             }
 
         }
     }
+
+    @ExperimentalFoundationApi
+    override fun onBackPressed() {
+        super.onBackPressed()
+
+        onCreate(null)
+    }
 }
 
 @ExperimentalFoundationApi
 @ExperimentalLayout
 @Composable
-private fun ShowBodyContent(screenState: MutableState<LauncherScreen>, launcherActivity: LauncherActivity, homeViewModel: HomeViewModel, colorPalette: MutableState<Colors>) {
+private fun ShowBodyContent(screenState: MutableState<LauncherScreen>, launcherActivity: LauncherActivity, homeViewModel: HomeViewModel, colorPalette: MutableState<Colors>, typography: MutableState<Typography>) {
     val appList by remember { mutableStateOf(mutableListOf<LauncherApplication>()) }
     fetchAppList(appList, launcherActivity)
 
@@ -89,7 +97,7 @@ private fun ShowBodyContent(screenState: MutableState<LauncherScreen>, launcherA
 //            }
         }
         LauncherScreen.SETTINGS -> {
-            SettingsContent(screenState = screenState, launcherActivity = launcherActivity, homeViewModel = homeViewModel, appList = appList, colorPalette)
+            SettingsContent(screenState = screenState, launcherActivity = launcherActivity, homeViewModel = homeViewModel, appList = appList, colorPalette, typography)
         }
     }
 }
@@ -212,7 +220,7 @@ fun DrawerContent(screenState: MutableState<LauncherScreen>, launcherActivity: L
     val hapticFeedback = HapticFeedBackAmbient.current
     val scrollState = rememberLazyListState()
 
-    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colors.primary)) {
         Row(modifier = Modifier.fillMaxWidth()) {
             LazyColumnFor(items = appList, state = scrollState, modifier = Modifier.fillMaxWidth(7 / 8f)
                     .padding(start = 16.dp, end = 40.dp)
@@ -261,7 +269,7 @@ fun DrawerContent(screenState: MutableState<LauncherScreen>, launcherActivity: L
 
 @ExperimentalLayout
 @Composable
-fun SettingsContent(screenState: MutableState<LauncherScreen>, launcherActivity: LauncherActivity, homeViewModel: HomeViewModel, appList: MutableList<LauncherApplication>, colorPalette: MutableState<Colors>) {
+fun SettingsContent(screenState: MutableState<LauncherScreen>, launcherActivity: LauncherActivity, homeViewModel: HomeViewModel, appList: MutableList<LauncherApplication>, colorPalette: MutableState<Colors>, typography: MutableState<Typography>) {
     Scaffold(
             topBar = {
                 TopAppBar(title = { Text(text = "Settings", color = Color.White) }, navigationIcon = {
@@ -321,9 +329,10 @@ fun SettingsContent(screenState: MutableState<LauncherScreen>, launcherActivity:
 
                     FlowRow(crossAxisAlignment = FlowCrossAxisAlignment.Center) {
                         listOfColorPalette.forEach {
-                            Box(modifier = Modifier.preferredSize(80.dp).padding(10.dp).background(color = it.primary).clickable(onClick = {
-                                colorPalette.value = it
+                            Box(modifier = Modifier.preferredSize(80.dp).padding(10.dp).background(color = it.themeColors.primary).clickable(onClick = {
+                                colorPalette.value = it.themeColors
                                 screenState.value = LauncherScreen.HOME
+                                homeViewModel.saveTheme(it.themeName)
                             }))
                         }
                     }
@@ -335,14 +344,14 @@ fun SettingsContent(screenState: MutableState<LauncherScreen>, launcherActivity:
                             modifier = Modifier.padding(vertical = 8.dp, horizontal = 8.dp)
                     )
 
-                    FlowRow(crossAxisAlignment = FlowCrossAxisAlignment.Center) {
-                        listOfColorPalette.forEach {
-                            Box(modifier = Modifier.preferredSize(80.dp).padding(10.dp).background(color = it.primary).clickable(onClick = {
-                                colorPalette.value = it
-                                screenState.value = LauncherScreen.HOME
-                            }))
-                        }
-                    }
+//                    FlowRow(crossAxisAlignment = FlowCrossAxisAlignment.Center) {
+//                        listOfColorPalette.forEach {
+//                            Box(modifier = Modifier.preferredSize(80.dp).padding(10.dp).background(color = it.primary).clickable(onClick = {
+//                                colorPalette.value = it
+//                                screenState.value = LauncherScreen.HOME
+//                            }))
+//                        }
+//                    }
 
                     Text(
                             text = "Font",
@@ -350,6 +359,19 @@ fun SettingsContent(screenState: MutableState<LauncherScreen>, launcherActivity:
                             color = Color.White,
                             modifier = Modifier.padding(vertical = 8.dp, horizontal = 8.dp)
                     )
+
+                    listOfTypes.forEach {
+                        Text(
+                                text = it.typeName,
+                                style = it.typography.body1,
+                                color = Color.White,
+                                modifier = Modifier
+                                        .padding(vertical = 8.dp, horizontal = 8.dp)
+                                        .clickable(onClick = {
+                                            typography.value = it.typography
+                                        })
+                        )
+                    }
 
                 }
             }

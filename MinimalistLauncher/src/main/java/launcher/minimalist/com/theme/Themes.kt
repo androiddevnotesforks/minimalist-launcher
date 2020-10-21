@@ -3,6 +3,7 @@ package launcher.minimalist.com.theme
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.Colors
 import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Typography
 import androidx.compose.material.darkColors
 import androidx.compose.material.lightColors
 import androidx.compose.runtime.Composable
@@ -102,9 +103,16 @@ val MinimalLauncherMagentaDarkPalette = darkColors(
         onError = Color.Black
 )
 
-val listOfColorPalette = listOf(MinimalLauncherBlueDarkPalette, MinimalLauncherCyanDarkPalette,
-        MinimalLauncherGreenDarkPalette, MinimalLauncherLightBlueDarkPalette,
-        MinimalLauncherMagentaDarkPalette, MinimalLauncherRedDarkPalette, MinimalLauncherLightBlackDarkPalette)
+val listOfColorPalette = listOf(
+        LauncherThemes("DarkBlue", MinimalLauncherBlueDarkPalette),
+        LauncherThemes("Cyan", MinimalLauncherCyanDarkPalette),
+        LauncherThemes("Green", MinimalLauncherGreenDarkPalette),
+        LauncherThemes("Light Blue", MinimalLauncherLightBlueDarkPalette),
+        LauncherThemes("Magenta", MinimalLauncherMagentaDarkPalette),
+        LauncherThemes("Red", MinimalLauncherRedDarkPalette),
+        LauncherThemes("Black",MinimalLauncherLightBlackDarkPalette))
+
+data class LauncherThemes(val themeName: String, val themeColors: Colors)
 
 private val MinimalLauncherLightPalette = lightColors(
         primary = LightBlue,
@@ -123,6 +131,7 @@ private val MinimalLauncherLightPalette = lightColors(
 fun MinimalLauncherTheme(
         isDarkTheme: Boolean = isSystemInDarkTheme(),
         colors: Colors? = MinimalLauncherBlueDarkPalette,
+        type: Typography = MaterialTheme.typography,
         content: @Composable () -> Unit
 ) {
 
@@ -132,6 +141,7 @@ fun MinimalLauncherTheme(
     MaterialTheme(
             colors = colors!!,
             content = content,
+            typography = type,
             shapes = JetchatShapes,
     )
 }
