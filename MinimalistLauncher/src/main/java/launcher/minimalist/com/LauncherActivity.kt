@@ -4,6 +4,7 @@ import android.content.Intent
 import android.content.pm.ResolveInfo
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.Toast
 import androidx.activity.viewModels
@@ -13,6 +14,7 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.lazy.LazyColumnFor
+import androidx.compose.foundation.lazy.LazyColumnForIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
@@ -33,14 +35,15 @@ import androidx.compose.ui.platform.ContextAmbient
 import androidx.compose.ui.platform.HapticFeedBackAmbient
 import androidx.compose.ui.platform.setContent
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpCubed
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import launcher.minimalist.com.theme.MinimalLauncherTheme
-import launcher.minimalist.com.theme.listOfColorPalette
 import dagger.hilt.android.AndroidEntryPoint
-import launcher.minimalist.com.theme.listOfTypes
+import launcher.minimalist.com.theme.*
 import java.time.LocalDate
 import java.util.*
 import kotlin.math.roundToInt
@@ -59,14 +62,21 @@ class LauncherActivity : AppCompatActivity() {
             val colorPalette = remember { mutableStateOf(listOfColorPalette.find { it.themeName == homeViewModel.getTheme() }!!.themeColors) }
             val typography = remember { mutableStateOf(listOfTypes[0].typography) }
 
-            MinimalLauncherTheme(colors = colorPalette.value, type = typography.value) {
-                Scaffold(
-                        bodyContent = {
-                            ShowBodyContent(screenState = screenState, launcherActivity = this@LauncherActivity, homeViewModel = homeViewModel, colorPalette, typography)
-                        }
-                )
-            }
+            val systemUiController = remember { SystemUiController(window) }
+            Providers(SystemUiControllerAmbient provides systemUiController) {
+                MinimalLauncherTheme(colors = colorPalette.value, type = typography.value) {
+                    val sysUiController = SystemUiControllerAmbient.current
+                    sysUiController.setSystemBarsColor(
+                            color = MaterialTheme.colors.primary
+                    )
 
+                    Scaffold(
+                            bodyContent = {
+                                ShowBodyContent(screenState = screenState, launcherActivity = this@LauncherActivity, homeViewModel = homeViewModel, colorPalette, typography)
+                            }
+                    )
+                }
+            }
         }
     }
 
@@ -213,54 +223,105 @@ fun HomeContent(screenState: MutableState<LauncherScreen>, launcherActivity: Lau
     }
 }
 
+@ExperimentalFoundationApi
 @ExperimentalLayout
 @Composable
 fun DrawerContent(screenState: MutableState<LauncherScreen>, launcherActivity: LauncherActivity, homeViewModel: HomeViewModel, appList: MutableList<LauncherApplication>) {
     val context = ContextAmbient.current
     val hapticFeedback = HapticFeedBackAmbient.current
-    val scrollState = rememberLazyListState()
+    val scrollState = rememberScrollState(0f)
+
+
+    val gray = Color(0xB3000000)
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colors.primary)) {
-        Row(modifier = Modifier.fillMaxWidth()) {
-            LazyColumnFor(items = appList, state = scrollState, modifier = Modifier.fillMaxWidth(7 / 8f)
-                    .padding(start = 16.dp, end = 40.dp)
-                    .draggable(
-                            orientation = Orientation.Horizontal,
-                            canDrag = { it == Direction.RIGHT },
-                            onDrag = {
-                                screenState.value = LauncherScreen.HOME
-                            }
-                    )
-            ) {
-                ListItem(modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(onClick = {
-                            launcherActivity.startActivity(launcherActivity.packageManager.getLaunchIntentForPackage(it.packageName))
-                        })
-                        .longPressGestureFilter { _: Offset ->
-                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                            if (appList.size == 5) {
-                                Toast.makeText(context, "Only 5 Apps Allowed", Toast.LENGTH_SHORT).show()
-                            } else {
-                                homeViewModel.addFavoriteApp(it)
-                                Toast.makeText(context, "Favorite Added", Toast.LENGTH_SHORT).show()
-                            }
-                        }) {
-                    Text(text = it.appName, color = Color.White)
+        Column(Modifier.fillMaxSize()) {
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 16.dp).wrapContentSize(), shape = RoundedCornerShape(30.dp), backgroundColor = gray) {
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        var searchInput by remember { mutableStateOf(TextFieldValue("")) }
+                        BaseTextField(
+                                value = searchInput,
+                                onValueChange = {
+                                    searchInput = it
+                                },
+                                textColor = Color.White,
+                                cursorColor = Color.White,
+                                modifier = Modifier.fillMaxWidth().padding(20.dp).height(20.dp),
+                                imeAction = ImeAction.Search,
+                                onImeActionPerformed = {
+
+                                },
+                        )
+                    }
                 }
             }
 
-            Column(modifier = Modifier.fillMaxHeight().fillMaxWidth().padding(end = 8.dp), horizontalAlignment = Alignment.End) {
-                val defaultFontSize = MaterialTheme.typography.subtitle2.fontSize
-                var textSize by remember { mutableStateOf(defaultFontSize) }
+            Row(modifier = Modifier.fillMaxWidth()) {
+                ScrollableColumn(modifier = Modifier
+                        .fillMaxWidth(7 / 8f)
+                        .padding(start = 16.dp, end = 40.dp)
+                        .draggable(
+                                orientation = Orientation.Horizontal,
+                                canDrag = { it == Direction.RIGHT },
+                                onDrag = {
+                                    screenState.value = LauncherScreen.HOME
+                                }
+                        ), scrollState = scrollState) {
 
-                ('A'..'Z').toMutableList().forEach {
-                    Text(
-                            text = it.toString(),
-                            style = MaterialTheme.typography.subtitle2,
-                            fontSize = textSize,
-                            color = Color.White,
-                    )
+                    appList.forEach { app ->
+                        ListItem(modifier = Modifier
+                                .height(50.dp)
+                                .fillMaxWidth()
+                                .clickable(onClick = {
+                                    launcherActivity.startActivity(launcherActivity.packageManager.getLaunchIntentForPackage(app.packageName))
+                                })
+                                .longPressGestureFilter { _: Offset ->
+                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    if (appList.size == 5) {
+                                        Toast.makeText(context, "Only 5 Apps Allowed", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        homeViewModel.addFavoriteApp(app)
+                                        Toast.makeText(context, "Favorite Added", Toast.LENGTH_SHORT).show()
+                                    }
+                                }) {
+                            Text(text = app.appName, color = Color.White)
+                        }
+                    }
+
+                    Log.d("TAG", "DrawerContent: ${scrollState.maxValue}")
+
+                }
+
+                Column(modifier = Modifier.fillMaxHeight().fillMaxWidth(7 / 8f).padding(end = 8.dp), horizontalAlignment = Alignment.End) {
+                    val defaultFontSize = MaterialTheme.typography.subtitle2.fontSize
+                    var selectedIndex by remember { mutableStateOf(-1) }
+
+                    val alphabet = ('A'..'Z').toMutableList()
+                    alphabet.forEachIndexed { index, c ->
+                        Text(
+                                text = c.toString(),
+                                style = if (index == selectedIndex) {
+                                    MaterialTheme.typography.h6
+                                } else {
+                                    MaterialTheme.typography.body1
+                                },
+                                fontWeight = if (index == selectedIndex) {
+                                    FontWeight.Bold
+                                } else {
+                                    FontWeight.Normal
+                                },
+                                color = Color.White,
+                                modifier = Modifier.clickable(onClick = {
+                                    val appToScrollTo = appList.find { it.appName.startsWith(c.toString()) }
+                                    val indexToScrollTo = appList.indexOf(appToScrollTo)
+                                    selectedIndex = index
+                                    val scrollHeightPerRow = scrollState.maxValue.div(appList.size)
+                                    scrollState.smoothScrollTo((scrollHeightPerRow.times(indexToScrollTo)))
+                                }).padding(vertical = 2.dp, horizontal = 8.dp)
+
+                        )
+                    }
                 }
             }
         }
@@ -337,12 +398,12 @@ fun SettingsContent(screenState: MutableState<LauncherScreen>, launcherActivity:
                         }
                     }
 
-                    Text(
-                            text = "Text Color",
-                            style = MaterialTheme.typography.body1,
-                            color = Color.White,
-                            modifier = Modifier.padding(vertical = 8.dp, horizontal = 8.dp)
-                    )
+//                    Text(
+//                            text = "Text Color",
+//                            style = MaterialTheme.typography.h6,
+//                            color = Color.White,
+//                            modifier = Modifier.padding(vertical = 8.dp)
+//                    )
 
 //                    FlowRow(crossAxisAlignment = FlowCrossAxisAlignment.Center) {
 //                        listOfColorPalette.forEach {
@@ -355,9 +416,9 @@ fun SettingsContent(screenState: MutableState<LauncherScreen>, launcherActivity:
 
                     Text(
                             text = "Font",
-                            style = MaterialTheme.typography.body1,
+                            style = MaterialTheme.typography.h6,
                             color = Color.White,
-                            modifier = Modifier.padding(vertical = 8.dp, horizontal = 8.dp)
+                            modifier = Modifier.padding(vertical = 8.dp)
                     )
 
                     listOfTypes.forEach {
