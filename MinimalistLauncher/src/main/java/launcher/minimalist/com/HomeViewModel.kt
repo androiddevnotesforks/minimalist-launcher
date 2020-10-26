@@ -1,5 +1,6 @@
 package launcher.minimalist.com
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -17,8 +18,14 @@ class HomeViewModel @ViewModelInject constructor(
 
     var favoriteApps: List<String> by mutableStateOf(emptyList())
 
-    val _weatherData : MutableLiveData<WeatherData> = MutableLiveData()
+    val _weatherData: MutableLiveData<WeatherData> = MutableLiveData()
     var weatherData: LiveData<WeatherData> = _weatherData
+
+    val _launcherApplications: MutableLiveData<MutableList<LauncherApplication>> = MutableLiveData()
+    var launcherApplications: LiveData<MutableList<LauncherApplication>> = _launcherApplications
+
+    val _filteredLauncherApplications: MutableLiveData<MutableList<LauncherApplication>> = MutableLiveData()
+    var filteredLauncherApplications: LiveData<MutableList<LauncherApplication>> = _launcherApplications
 
     init {
         favoriteApps = homeRepository.fetchPreferences()
@@ -26,6 +33,10 @@ class HomeViewModel @ViewModelInject constructor(
         viewModelScope.launch {
             _weatherData.postValue(homeRepository.getWeatherData())
         }
+    }
+
+    fun storeLauncherApplications(launcherApps: MutableList<LauncherApplication>) {
+        _launcherApplications.postValue(launcherApps)
     }
 
     //TODO Store in DB
@@ -44,11 +55,23 @@ class HomeViewModel @ViewModelInject constructor(
         }
     }
 
-    fun saveTheme(themeName : String){
+    fun saveTheme(themeName: String) {
         homeRepository.saveTheme(themeName)
+    }
+
+    fun saveShowLauncherIcons(showLauncherIcons: Boolean) {
+        homeRepository.saveShowLauncherIcons(showLauncherIcons)
     }
 
     fun getTheme() = homeRepository.getTheme()
 
     fun getZipCode() = homeRepository.getZipCode()
+
+    fun getShowLauncherIcons(): Boolean = homeRepository.showLauncherIcons()
+
+    fun filterAppBySearch(searchChars : String){
+        Log.d("TAG", "filterAppBySearch: $searchChars")
+        val filteredList = launcherApplications.value!!.filter { it.appName.contentEquals(searchChars) }
+        _filteredLauncherApplications.postValue(filteredList.toMutableList())
+    }
 }

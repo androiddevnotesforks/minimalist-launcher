@@ -1,3 +1,5 @@
 package launcher.minimalist.com
 
-data class LauncherApplication(val appName: String, val packageName: String)
+import android.graphics.drawable.Drawable
+
+data class LauncherApplication(val appName: String, val packageName: String, val launcherIconRes:Drawable?)

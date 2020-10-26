@@ -66,4 +66,10 @@ class HomeRepository @Inject constructor(
     }
 
     fun getTheme() = preferences.getString("theme", "Black")
+
+    fun saveShowLauncherIcons(showLauncherIcons: Boolean) {
+        preferences.edit().putBoolean("showLauncherIcons", showLauncherIcons).apply()
+    }
+
+    fun showLauncherIcons() = preferences.getBoolean("showLauncherIcons", false)
 }

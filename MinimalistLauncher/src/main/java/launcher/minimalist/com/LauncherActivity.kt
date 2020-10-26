@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -34,6 +35,8 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.ContextAmbient
 import androidx.compose.ui.platform.HapticFeedBackAmbient
 import androidx.compose.ui.platform.setContent
+import androidx.compose.ui.res.imageResource
+import androidx.compose.ui.res.loadVectorResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -58,6 +61,7 @@ class LauncherActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
+            fetchAppList(this@LauncherActivity, homeViewModel)
             val screenState = remember { mutableStateOf(LauncherScreen.HOME) }
             val colorPalette = remember { mutableStateOf(listOfColorPalette.find { it.themeName == homeViewModel.getTheme() }!!.themeColors) }
             val typography = remember { mutableStateOf(listOfTypes[0].typography) }
@@ -92,22 +96,23 @@ class LauncherActivity : AppCompatActivity() {
 @ExperimentalLayout
 @Composable
 private fun ShowBodyContent(screenState: MutableState<LauncherScreen>, launcherActivity: LauncherActivity, homeViewModel: HomeViewModel, colorPalette: MutableState<Colors>, typography: MutableState<Typography>) {
-    val appList by remember { mutableStateOf(mutableListOf<LauncherApplication>()) }
-    fetchAppList(appList, launcherActivity)
+    val appList by homeViewModel.launcherApplications.observeAsState()
 
-    when (screenState.value) {
-        LauncherScreen.HOME -> {
+    appList?.let {
+        when (screenState.value) {
+            LauncherScreen.HOME -> {
 //            Crossfade(current = screenState.value, animation = tween(1000)) {
-            HomeContent(screenState = screenState, launcherActivity = launcherActivity, homeViewModel = homeViewModel, appList = appList)
+                HomeContent(screenState = screenState, launcherActivity = launcherActivity, homeViewModel = homeViewModel, appList = appList!!)
 //            }
-        }
-        LauncherScreen.DRAWER -> {
+            }
+            LauncherScreen.DRAWER -> {
 //            Crossfade(current = screenState.value, animation = tween(1000)) {
-            DrawerContent(screenState = screenState, launcherActivity = launcherActivity, homeViewModel = homeViewModel, appList = appList)
+                DrawerContent(screenState = screenState, launcherActivity = launcherActivity, homeViewModel = homeViewModel, appList = appList!!)
 //            }
-        }
-        LauncherScreen.SETTINGS -> {
-            SettingsContent(screenState = screenState, launcherActivity = launcherActivity, homeViewModel = homeViewModel, appList = appList, colorPalette, typography)
+            }
+            LauncherScreen.SETTINGS -> {
+                SettingsContent(screenState = screenState, launcherActivity = launcherActivity, homeViewModel = homeViewModel, appList = appList!!, colorPalette, typography)
+            }
         }
     }
 }
@@ -237,13 +242,14 @@ fun DrawerContent(screenState: MutableState<LauncherScreen>, launcherActivity: L
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colors.primary)) {
         Column(Modifier.fillMaxSize()) {
             Row(modifier = Modifier.fillMaxWidth()) {
-                Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 16.dp).wrapContentSize(), shape = RoundedCornerShape(30.dp), backgroundColor = gray) {
+                Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 16.dp, bottom = 16.dp).wrapContentSize(), shape = RoundedCornerShape(30.dp), backgroundColor = gray) {
                     Row(modifier = Modifier.fillMaxWidth()) {
-                        var searchInput by remember { mutableStateOf(TextFieldValue("")) }
+                        var searchInput by remember { mutableStateOf(TextFieldValue("Search apps")) }
                         BaseTextField(
                                 value = searchInput,
                                 onValueChange = {
                                     searchInput = it
+                                    homeViewModel.filterAppBySearch(it.text)
                                 },
                                 textColor = Color.White,
                                 cursorColor = Color.White,
@@ -269,6 +275,7 @@ fun DrawerContent(screenState: MutableState<LauncherScreen>, launcherActivity: L
                                 }
                         ), scrollState = scrollState) {
 
+                    val showLauncherIcons by remember { mutableStateOf(homeViewModel.getShowLauncherIcons()) }
                     appList.forEach { app ->
                         ListItem(modifier = Modifier
                                 .height(50.dp)
@@ -285,7 +292,18 @@ fun DrawerContent(screenState: MutableState<LauncherScreen>, launcherActivity: L
                                         Toast.makeText(context, "Favorite Added", Toast.LENGTH_SHORT).show()
                                     }
                                 }) {
-                            Text(text = app.appName, color = Color.White)
+                            Row(modifier = Modifier.fillMaxWidth()) {
+                                var horizontalPadding = 0.dp
+                                if (showLauncherIcons) {
+                                    horizontalPadding = 8.dp
+                                    AndroidView(viewBlock = { context ->
+                                        val imageView = ImageView(context)
+                                        imageView.setImageDrawable(app.launcherIconRes)
+                                        return@AndroidView imageView
+                                    }, modifier = Modifier.size(36.dp))
+                                }
+                                Text(text = app.appName, color = Color.White, modifier = Modifier.padding(horizontal = horizontalPadding).align(Alignment.CenterVertically))
+                            }
                         }
                     }
 
@@ -298,35 +316,39 @@ fun DrawerContent(screenState: MutableState<LauncherScreen>, launcherActivity: L
                     var selectedIndex by remember { mutableStateOf(-1) }
 
                     val alphabet = ('A'..'Z').toMutableList()
-                    alphabet.forEachIndexed { index, c ->
-                        Text(
-                                text = c.toString(),
-                                style = if (index == selectedIndex) {
-                                    MaterialTheme.typography.h6
-                                } else {
-                                    MaterialTheme.typography.body1
-                                },
-                                fontWeight = if (index == selectedIndex) {
-                                    FontWeight.Bold
-                                } else {
-                                    FontWeight.Normal
-                                },
-                                color = Color.White,
-                                modifier = Modifier.clickable(onClick = {
-                                    val appToScrollTo = appList.find { it.appName.startsWith(c.toString()) }
-                                    val indexToScrollTo = appList.indexOf(appToScrollTo)
-                                    selectedIndex = index
-                                    val scrollHeightPerRow = scrollState.maxValue.div(appList.size)
-                                    scrollState.smoothScrollTo((scrollHeightPerRow.times(indexToScrollTo)))
-                                }).padding(vertical = 2.dp, horizontal = 8.dp)
+                    Column(verticalArrangement = Arrangement.Center) {
+                        alphabet.forEachIndexed { index, c ->
+                            Text(
+                                    text = c.toString(),
+                                    style = if (index == selectedIndex) {
+                                        MaterialTheme.typography.h6
+                                    } else {
+                                        MaterialTheme.typography.body1
+                                    },
+                                    fontWeight = if (index == selectedIndex) {
+                                        FontWeight.Bold
+                                    } else {
+                                        FontWeight.Normal
+                                    },
+                                    color = Color.White,
+                                    modifier = Modifier.clickable(onClick = {
+                                        val appToScrollTo = getFirstAppFromChar(c.toString(), appList)
+                                        val indexToScrollTo = appList.indexOf(appToScrollTo)
+                                        selectedIndex = index
+                                        val scrollHeightPerRow = scrollState.maxValue.div(appList.size)
+                                        scrollState.smoothScrollTo((scrollHeightPerRow.times(indexToScrollTo)))
+                                    }).padding(vertical = 2.dp, horizontal = 8.dp)
 
-                        )
+                            )
+                        }
                     }
                 }
             }
         }
     }
 }
+
+fun getFirstAppFromChar(char: String, appList: MutableList<LauncherApplication>): LauncherApplication? = appList.find { it.appName.startsWith(char) }
 
 @ExperimentalLayout
 @Composable
@@ -339,7 +361,7 @@ fun SettingsContent(screenState: MutableState<LauncherScreen>, launcherActivity:
                     }) {
                         Image(asset = Icons.Default.Close, colorFilter = ColorFilter.tint(Color.White))
                     }
-                }, backgroundColor = Color.Black)
+                }, backgroundColor = MaterialTheme.colors.primary)
             },
             bodyContent = {
                 Column(modifier = Modifier.fillMaxSize().background(Color.DarkGray).padding(16.dp)) {
@@ -434,6 +456,23 @@ fun SettingsContent(screenState: MutableState<LauncherScreen>, launcherActivity:
                         )
                     }
 
+                    var showLauncherIcons by remember { mutableStateOf(homeViewModel.getShowLauncherIcons()) }
+
+                    Row(modifier = Modifier.padding(vertical = 8.dp)) {
+                        Switch(checked = showLauncherIcons, onCheckedChange = {
+                            showLauncherIcons = it
+                            homeViewModel.saveShowLauncherIcons(showLauncherIcons)
+                        })
+
+                        Text(
+                                text = "Show App Icons",
+                                style = MaterialTheme.typography.body1,
+                                color = Color.White,
+                                modifier = Modifier.padding(vertical = 8.dp, horizontal = 8.dp).align(Alignment.CenterVertically)
+                        )
+                    }
+
+
                 }
             }
 
@@ -442,7 +481,8 @@ fun SettingsContent(screenState: MutableState<LauncherScreen>, launcherActivity:
 }
 
 @ExperimentalLayout
-fun fetchAppList(appList: MutableList<LauncherApplication>, launcherActivity: LauncherActivity) {
+fun fetchAppList(launcherActivity: LauncherActivity, homeViewModel: HomeViewModel) {
+    val appList: MutableList<LauncherApplication> = mutableListOf()
     // Start from a clean adapter when refreshing the list
     appList.clear()
 
@@ -458,8 +498,10 @@ fun fetchAppList(appList: MutableList<LauncherApplication>, launcherActivity: La
         val appName = resolver.loadLabel(launcherActivity.packageManager) as String
         if (appName == "Settings" || appName == "Minimalist Launcher") continue
 
-        appList.add(LauncherApplication(appName = appName, packageName = resolver.activityInfo.packageName))
+        appList.add(LauncherApplication(appName = appName, packageName = resolver.activityInfo.packageName, launcherIconRes = resolver.loadIcon(launcherActivity.packageManager)))
     }
+
+    homeViewModel.storeLauncherApplications(appList)
 }
 
 enum class LauncherScreen {
