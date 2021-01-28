@@ -1,24 +1,33 @@
 package launcher.minimalist.com
 
+import android.Manifest
+import android.app.Activity
+import android.app.WallpaperManager
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.view.WindowManager
 import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.AppCompatImageView
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.lazy.LazyColumnFor
-import androidx.compose.foundation.lazy.LazyColumnForIndexed
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.*
+import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.runtime.*
@@ -32,20 +41,20 @@ import androidx.compose.ui.gesture.scrollorientationlocking.Orientation
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.ContextAmbient
-import androidx.compose.ui.platform.HapticFeedBackAmbient
-import androidx.compose.ui.platform.setContent
-import androidx.compose.ui.res.imageResource
-import androidx.compose.ui.res.loadVectorResource
+import androidx.compose.ui.platform.*
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.DpCubed
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
 import launcher.minimalist.com.theme.*
 import java.time.LocalDate
 import java.util.*
@@ -59,6 +68,13 @@ class LauncherActivity : AppCompatActivity() {
     @ExperimentalFoundationApi
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        setupPermissions(this)
+
+        window.setFlags(
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+        )
 
         setContent {
             fetchAppList(this@LauncherActivity, homeViewModel)
@@ -84,6 +100,18 @@ class LauncherActivity : AppCompatActivity() {
         }
     }
 
+    override fun onRequestPermissionsResult(requestCode: Int,
+                                            permissions: Array<String>, grantResults: IntArray) {
+        when (requestCode) {
+            101 -> {
+
+                if (grantResults.isEmpty() || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
+                } else {
+                }
+            }
+        }
+    }
+
     @ExperimentalFoundationApi
     override fun onBackPressed() {
         super.onBackPressed()
@@ -92,10 +120,25 @@ class LauncherActivity : AppCompatActivity() {
     }
 }
 
+private fun setupPermissions(activity : Activity) {
+    val permission = ContextCompat.checkSelfPermission(activity,
+            Manifest.permission.RECORD_AUDIO)
+
+    if (permission != PackageManager.PERMISSION_GRANTED) {
+        makeRequest(activity = activity)
+    }
+}
+
+private fun makeRequest(activity : Activity) {
+    ActivityCompat.requestPermissions(activity,
+            arrayOf(Manifest.permission.RECORD_AUDIO),
+            101)
+}
+
 @ExperimentalFoundationApi
 @ExperimentalLayout
 @Composable
-private fun ShowBodyContent(screenState: MutableState<LauncherScreen>, launcherActivity: LauncherActivity, homeViewModel: HomeViewModel, colorPalette: MutableState<Colors>, typography: MutableState<Typography>) {
+private fun ShowBodyContent(screenState: MutableState<LauncherScreen>, launcherActivity: LauncherActivity, homeViewModel: HomeViewModel, colorPalette: MutableState<Colors>, typography: MutableState<androidx.compose.material.Typography>) {
     val appList by homeViewModel.launcherApplications.observeAsState()
 
     appList?.let {
@@ -124,20 +167,42 @@ fun HomeContent(screenState: MutableState<LauncherScreen>, launcherActivity: Lau
     val context = ContextAmbient.current
     val hapticFeedback = HapticFeedBackAmbient.current
 
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colors.primary)
+    Box(modifier = Modifier
+            .fillMaxSize()
+//            .background(MaterialTheme.colors.primary)
             .draggable(
                     orientation = Orientation.Horizontal,
-                    canDrag = { it == Direction.LEFT },
                     onDrag = {
                         screenState.value = LauncherScreen.DRAWER
                     }
-            ).longPressGestureFilter { _: Offset ->
+            )
+            .longPressGestureFilter { _: Offset ->
                 hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                 screenState.value = LauncherScreen.SETTINGS
             }) {
 
+        Surface(modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight()) {
+            AndroidView(viewBlock = { context ->
+                val view = View.inflate(context, R.layout.background, null)
+                val background = view.findViewById<AppCompatImageView>(R.id.background)
 
-        Surface(modifier = Modifier.fillMaxWidth().fillMaxHeight(1 / 2f).align(Alignment.Center), color = MaterialTheme.colors.primary) {
+                val wallpaperManager = WallpaperManager.getInstance(context)
+
+                background.background = wallpaperManager.fastDrawable
+
+                return@AndroidView view
+            })
+        }
+
+        Surface(
+                modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(1 / 2f)
+                        .align(Alignment.Center),
+                color = Color.Transparent
+        ) {
             Column(modifier = Modifier.padding(horizontal = 30.dp)) {
                 if (homeViewModel.favoriteApps.isEmpty()) {
                     Text(text = "Swipe right and long press\non 5 apps! \n\n\n -->", style = MaterialTheme.typography.h6, color = Color.White)
@@ -165,7 +230,12 @@ fun HomeContent(screenState: MutableState<LauncherScreen>, launcherActivity: Lau
             }
         }
 
-        Surface(modifier = Modifier.fillMaxWidth().fillMaxHeight(1 / 4f).align(Alignment.TopCenter), color = MaterialTheme.colors.primary) {
+        Surface(modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(1 / 4f)
+                .align(Alignment.TopCenter),
+               color = Color.Transparent
+        ) {
             Column(modifier = Modifier.padding(horizontal = 30.dp, vertical = 20.dp)) {
                 AndroidView(viewBlock = { context ->
                     return@AndroidView View.inflate(context, R.layout.text_clock, null)
@@ -189,25 +259,47 @@ fun HomeContent(screenState: MutableState<LauncherScreen>, launcherActivity: Lau
             }
         }
 
-        Surface(modifier = Modifier.fillMaxWidth().fillMaxHeight(1 / 4f).align(Alignment.BottomCenter).padding(bottom = 10.dp), color = MaterialTheme.colors.primary) {
-            Row(modifier = Modifier.align(Alignment.BottomCenter).wrapContentHeight(Alignment.Bottom)) {
-                Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 30.dp).wrapContentSize(), shape = RoundedCornerShape(30.dp), backgroundColor = Color.DarkGray) {
+        Surface(modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(1 / 4f)
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 10.dp),
+                color = Color.Transparent
+        ) {
+            Row(modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .wrapContentHeight(Alignment.Bottom)) {
+                Card(modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 30.dp)
+                        .wrapContentSize(), shape = RoundedCornerShape(30.dp), backgroundColor = Color.DarkGray) {
 
                     Row(modifier = Modifier.fillMaxWidth()) {
                         Image(
-                                asset = vectorResource(id = R.drawable.ic_duckduckgo),
-                                modifier = Modifier.preferredSize(48.dp).align(Alignment.CenterVertically).padding(start = 10.dp))
+                                imageVector = vectorResource(id = R.drawable.ic_duckduckgo),
+                                contentDescription = "Duck Duck Go Icon",
+                                modifier = Modifier
+                                        .preferredSize(48.dp)
+                                        .align(Alignment.CenterVertically)
+                                        .padding(start = 10.dp))
 
                         var searchInput by remember { mutableStateOf(TextFieldValue("")) }
-                        BaseTextField(
+
+                        BasicTextField(
                                 value = searchInput,
                                 onValueChange = {
                                     searchInput = it
                                 },
-                                textColor = Color.White,
+                                textStyle = TextStyle(color = Color.White),
                                 cursorColor = Color.White,
-                                modifier = Modifier.fillMaxWidth().padding(20.dp).height(20.dp),
-                                imeAction = ImeAction.Search,
+                                modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(20.dp)
+                                        .height(20.dp),
+                                onTextInputStarted = { keyboardController ->
+                                    keyboardController.showSoftwareKeyboard()
+                                },
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                                 onImeActionPerformed = {
                                     if (it == ImeAction.Search) {
                                         val searchIntent = Intent(Intent.ACTION_VIEW)
@@ -232,29 +324,38 @@ fun HomeContent(screenState: MutableState<LauncherScreen>, launcherActivity: Lau
 @ExperimentalLayout
 @Composable
 fun DrawerContent(screenState: MutableState<LauncherScreen>, launcherActivity: LauncherActivity, homeViewModel: HomeViewModel, appList: MutableList<LauncherApplication>) {
-    val context = ContextAmbient.current
-    val hapticFeedback = HapticFeedBackAmbient.current
-    val scrollState = rememberScrollState(0f)
+    val context = AmbientContext.current
+    val hapticFeedback = AmbientHapticFeedback.current
+    val scrollState = rememberLazyListState(0)
 
 
     val gray = Color(0xB3000000)
 
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colors.primary)) {
+    Box(modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colors.primary)) {
         Column(Modifier.fillMaxSize()) {
             Row(modifier = Modifier.fillMaxWidth()) {
-                Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 16.dp, bottom = 16.dp).wrapContentSize(), shape = RoundedCornerShape(30.dp), backgroundColor = gray) {
+                Card(modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .padding(top = 16.dp, bottom = 16.dp)
+                        .wrapContentSize(), shape = RoundedCornerShape(30.dp), backgroundColor = gray) {
                     Row(modifier = Modifier.fillMaxWidth()) {
                         var searchInput by remember { mutableStateOf(TextFieldValue("Search apps")) }
-                        BaseTextField(
+                        BasicTextField(
                                 value = searchInput,
                                 onValueChange = {
                                     searchInput = it
                                     homeViewModel.filterAppBySearch(it.text)
                                 },
-                                textColor = Color.White,
-                                cursorColor = Color.White,
-                                modifier = Modifier.fillMaxWidth().padding(20.dp).height(20.dp),
-                                imeAction = ImeAction.Search,
+                                textStyle = TextStyle(color = Color.White),
+                                cursorColor = Color . White,
+                                modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(20.dp)
+                                        .height(20.dp),
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                                 onImeActionPerformed = {
 
                                 },
@@ -264,16 +365,16 @@ fun DrawerContent(screenState: MutableState<LauncherScreen>, launcherActivity: L
             }
 
             Row(modifier = Modifier.fillMaxWidth()) {
-                ScrollableColumn(modifier = Modifier
+                LazyColumn(modifier = Modifier
                         .fillMaxWidth(7 / 8f)
                         .padding(start = 16.dp, end = 40.dp)
                         .draggable(
                                 orientation = Orientation.Horizontal,
-                                canDrag = { it == Direction.RIGHT },
+//                                canDrag = { it == Direction.RIGHT },
                                 onDrag = {
                                     screenState.value = LauncherScreen.HOME
                                 }
-                        ), scrollState = scrollState) {
+                        ), state = scrollState) {
 
                     val showLauncherIcons by remember { mutableStateOf(homeViewModel.getShowLauncherIcons()) }
                     appList.forEach { app ->
@@ -286,10 +387,14 @@ fun DrawerContent(screenState: MutableState<LauncherScreen>, launcherActivity: L
                                 .longPressGestureFilter { _: Offset ->
                                     hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                                     if (appList.size == 5) {
-                                        Toast.makeText(context, "Only 5 Apps Allowed", Toast.LENGTH_SHORT).show()
+                                        Toast
+                                                .makeText(context, "Only 5 Apps Allowed", Toast.LENGTH_SHORT)
+                                                .show()
                                     } else {
                                         homeViewModel.addFavoriteApp(app)
-                                        Toast.makeText(context, "Favorite Added", Toast.LENGTH_SHORT).show()
+                                        Toast
+                                                .makeText(context, "Favorite Added", Toast.LENGTH_SHORT)
+                                                .show()
                                     }
                                 }) {
                             Row(modifier = Modifier.fillMaxWidth()) {
@@ -302,16 +407,21 @@ fun DrawerContent(screenState: MutableState<LauncherScreen>, launcherActivity: L
                                         return@AndroidView imageView
                                     }, modifier = Modifier.size(36.dp))
                                 }
-                                Text(text = app.appName, color = Color.White, modifier = Modifier.padding(horizontal = horizontalPadding).align(Alignment.CenterVertically))
+                                Text(text = app.appName, color = Color.White, modifier = Modifier
+                                        .padding(horizontal = horizontalPadding)
+                                        .align(Alignment.CenterVertically))
                             }
                         }
                     }
 
-                    Log.d("TAG", "DrawerContent: ${scrollState.maxValue}")
+//                    Log.d("TAG", "DrawerContent: ${scrollState.maxValue}")
 
                 }
 
-                Column(modifier = Modifier.fillMaxHeight().fillMaxWidth(7 / 8f).padding(end = 8.dp), horizontalAlignment = Alignment.End) {
+                Column(modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(7 / 8f)
+                        .padding(end = 8.dp), horizontalAlignment = Alignment.End) {
                     val defaultFontSize = MaterialTheme.typography.subtitle2.fontSize
                     var selectedIndex by remember { mutableStateOf(-1) }
 
@@ -331,13 +441,22 @@ fun DrawerContent(screenState: MutableState<LauncherScreen>, launcherActivity: L
                                         FontWeight.Normal
                                     },
                                     color = Color.White,
-                                    modifier = Modifier.clickable(onClick = {
-                                        val appToScrollTo = getFirstAppFromChar(c.toString(), appList)
-                                        val indexToScrollTo = appList.indexOf(appToScrollTo)
-                                        selectedIndex = index
-                                        val scrollHeightPerRow = scrollState.maxValue.div(appList.size)
-                                        scrollState.smoothScrollTo((scrollHeightPerRow.times(indexToScrollTo)))
-                                    }).padding(vertical = 2.dp, horizontal = 8.dp)
+                                    modifier = Modifier
+                                            .clickable(onClick = {
+                                                val appToScrollTo = getFirstAppFromChar(c.toString(), appList)
+                                                val indexToScrollTo = appList.indexOf(appToScrollTo)
+                                                selectedIndex = index
+//                                                val scrollHeightPerRow = scrollState.maxValue.div(appList.size)
+
+                                                withContext(AmbientContext.current, scrollState.snapToItemIndex(indexToScrollTo, 0))
+                                                CoroutineScope(AmbientContext.current)
+                                                coroutineScope {
+
+                                                }
+
+//                                                scrollState.smoothScrollTo((scrollHeightPerRow.times(indexToScrollTo)))
+                                            })
+                                            .padding(vertical = 2.dp, horizontal = 8.dp)
 
                             )
                         }
@@ -352,19 +471,22 @@ fun getFirstAppFromChar(char: String, appList: MutableList<LauncherApplication>)
 
 @ExperimentalLayout
 @Composable
-fun SettingsContent(screenState: MutableState<LauncherScreen>, launcherActivity: LauncherActivity, homeViewModel: HomeViewModel, appList: MutableList<LauncherApplication>, colorPalette: MutableState<Colors>, typography: MutableState<Typography>) {
+fun SettingsContent(screenState: MutableState<LauncherScreen>, launcherActivity: LauncherActivity, homeViewModel: HomeViewModel, appList: MutableList<LauncherApplication>, colorPalette: MutableState<Colors>, typography: MutableState<androidx.compose.material.Typography>) {
     Scaffold(
             topBar = {
                 TopAppBar(title = { Text(text = "Settings", color = Color.White) }, navigationIcon = {
                     IconButton(onClick = {
                         screenState.value = LauncherScreen.HOME
                     }) {
-                        Image(asset = Icons.Default.Close, colorFilter = ColorFilter.tint(Color.White))
+                        Image(imageVector = Icons.Default.Close, colorFilter = ColorFilter.tint(Color.White))
                     }
                 }, backgroundColor = MaterialTheme.colors.primary)
             },
             bodyContent = {
-                Column(modifier = Modifier.fillMaxSize().background(Color.DarkGray).padding(16.dp)) {
+                Column(modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.DarkGray)
+                        .padding(16.dp)) {
                     Text(
                             text = "Weather",
                             style = MaterialTheme.typography.h6,
@@ -374,6 +496,7 @@ fun SettingsContent(screenState: MutableState<LauncherScreen>, launcherActivity:
                     )
 
                     var weatherLocation by remember { mutableStateOf(TextFieldValue(homeViewModel.getZipCode())) }
+
                     OutlinedTextField(
                             value = weatherLocation,
                             onValueChange = {
@@ -383,7 +506,7 @@ fun SettingsContent(screenState: MutableState<LauncherScreen>, launcherActivity:
                             modifier = Modifier.padding(vertical = 8.dp),
                             inactiveColor = Color.White,
                             activeColor = Color.White,
-                            imeAction = ImeAction.Done,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                             onImeActionPerformed = { imeAction, softwareKeyboard ->
                                 if (imeAction == ImeAction.Done) {
                                     homeViewModel.saveZipCode(weatherLocation.text)
@@ -393,7 +516,6 @@ fun SettingsContent(screenState: MutableState<LauncherScreen>, launcherActivity:
                             onTextInputStarted = { softwareKeyboardController ->
                                 softwareKeyboardController.showSoftwareKeyboard()
                             }
-
                     )
 
                     Text(
@@ -412,11 +534,15 @@ fun SettingsContent(screenState: MutableState<LauncherScreen>, launcherActivity:
 
                     FlowRow(crossAxisAlignment = FlowCrossAxisAlignment.Center) {
                         listOfColorPalette.forEach {
-                            Box(modifier = Modifier.preferredSize(80.dp).padding(10.dp).background(color = it.themeColors.primary).clickable(onClick = {
-                                colorPalette.value = it.themeColors
-                                screenState.value = LauncherScreen.HOME
-                                homeViewModel.saveTheme(it.themeName)
-                            }))
+                            Box(modifier = Modifier
+                                    .preferredSize(80.dp)
+                                    .padding(10.dp)
+                                    .background(color = it.themeColors.primary)
+                                    .clickable(onClick = {
+                                        colorPalette.value = it.themeColors
+                                        screenState.value = LauncherScreen.HOME
+                                        homeViewModel.saveTheme(it.themeName)
+                                    }))
                         }
                     }
 
@@ -468,7 +594,9 @@ fun SettingsContent(screenState: MutableState<LauncherScreen>, launcherActivity:
                                 text = "Show App Icons",
                                 style = MaterialTheme.typography.body1,
                                 color = Color.White,
-                                modifier = Modifier.padding(vertical = 8.dp, horizontal = 8.dp).align(Alignment.CenterVertically)
+                                modifier = Modifier
+                                        .padding(vertical = 8.dp, horizontal = 8.dp)
+                                        .align(Alignment.CenterVertically)
                         )
                     }
 
@@ -489,6 +617,10 @@ fun fetchAppList(launcherActivity: LauncherActivity, homeViewModel: HomeViewMode
     // Query the package manager for all apps
     val activities = launcherActivity.packageManager.queryIntentActivities(
             Intent(Intent.ACTION_MAIN, null).addCategory(Intent.CATEGORY_LAUNCHER), 0)
+
+//    val activities = launcherActivity.packageManager.getInstalledPackages(0)
+//
+//    val sortedActivities = activities.sortBy { it.applicationInfo.}
 
     // Sort the applications by alphabetical order and add them to the list
     Collections.sort(activities, ResolveInfo.DisplayNameComparator(launcherActivity.packageManager))
