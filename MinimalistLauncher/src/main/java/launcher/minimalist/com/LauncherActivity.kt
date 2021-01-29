@@ -22,6 +22,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -52,9 +53,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import launcher.minimalist.com.theme.*
 import java.time.LocalDate
 import java.util.*
@@ -102,6 +101,7 @@ class LauncherActivity : AppCompatActivity() {
 
     override fun onRequestPermissionsResult(requestCode: Int,
                                             permissions: Array<String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         when (requestCode) {
             101 -> {
 
@@ -120,7 +120,7 @@ class LauncherActivity : AppCompatActivity() {
     }
 }
 
-private fun setupPermissions(activity : Activity) {
+private fun setupPermissions(activity: Activity) {
     val permission = ContextCompat.checkSelfPermission(activity,
             Manifest.permission.RECORD_AUDIO)
 
@@ -129,7 +129,7 @@ private fun setupPermissions(activity : Activity) {
     }
 }
 
-private fun makeRequest(activity : Activity) {
+private fun makeRequest(activity: Activity) {
     ActivityCompat.requestPermissions(activity,
             arrayOf(Manifest.permission.RECORD_AUDIO),
             101)
@@ -164,8 +164,8 @@ private fun ShowBodyContent(screenState: MutableState<LauncherScreen>, launcherA
 @ExperimentalLayout
 @Composable
 fun HomeContent(screenState: MutableState<LauncherScreen>, launcherActivity: LauncherActivity, homeViewModel: HomeViewModel, appList: MutableList<LauncherApplication>) {
-    val context = ContextAmbient.current
-    val hapticFeedback = HapticFeedBackAmbient.current
+    val context = AmbientContext.current
+    val hapticFeedback = AmbientHapticFeedback.current
 
     Box(modifier = Modifier
             .fillMaxSize()
@@ -234,7 +234,7 @@ fun HomeContent(screenState: MutableState<LauncherScreen>, launcherActivity: Lau
                 .fillMaxWidth()
                 .fillMaxHeight(1 / 4f)
                 .align(Alignment.TopCenter),
-               color = Color.Transparent
+                color = Color.Transparent
         ) {
             Column(modifier = Modifier.padding(horizontal = 30.dp, vertical = 20.dp)) {
                 AndroidView(viewBlock = { context ->
@@ -340,6 +340,7 @@ fun DrawerContent(screenState: MutableState<LauncherScreen>, launcherActivity: L
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
                         .padding(top = 16.dp, bottom = 16.dp)
+                        .background(color = Color.LightGray)
                         .wrapContentSize(), shape = RoundedCornerShape(30.dp), backgroundColor = gray) {
                     Row(modifier = Modifier.fillMaxWidth()) {
                         var searchInput by remember { mutableStateOf(TextFieldValue("Search apps")) }
@@ -350,72 +351,69 @@ fun DrawerContent(screenState: MutableState<LauncherScreen>, launcherActivity: L
                                     homeViewModel.filterAppBySearch(it.text)
                                 },
                                 textStyle = TextStyle(color = Color.White),
-                                cursorColor = Color . White,
+                                cursorColor = Color.White,
                                 modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(20.dp)
                                         .height(20.dp),
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                                onImeActionPerformed = {
-
-                                },
                         )
                     }
                 }
             }
+            val showLauncherIcons by remember { mutableStateOf(homeViewModel.getShowLauncherIcons()) }
+            val filterAppList by homeViewModel.filteredLauncherApplications.observeAsState()
 
+            Log.d("", "DrawerContent: ${filterAppList!!.size}")
             Row(modifier = Modifier.fillMaxWidth()) {
                 LazyColumn(modifier = Modifier
                         .fillMaxWidth(7 / 8f)
                         .padding(start = 16.dp, end = 40.dp)
                         .draggable(
                                 orientation = Orientation.Horizontal,
-//                                canDrag = { it == Direction.RIGHT },
                                 onDrag = {
                                     screenState.value = LauncherScreen.HOME
                                 }
                         ), state = scrollState) {
-
-                    val showLauncherIcons by remember { mutableStateOf(homeViewModel.getShowLauncherIcons()) }
-                    appList.forEach { app ->
-                        ListItem(modifier = Modifier
-                                .height(50.dp)
-                                .fillMaxWidth()
-                                .clickable(onClick = {
-                                    launcherActivity.startActivity(launcherActivity.packageManager.getLaunchIntentForPackage(app.packageName))
-                                })
-                                .longPressGestureFilter { _: Offset ->
-                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    if (appList.size == 5) {
-                                        Toast
-                                                .makeText(context, "Only 5 Apps Allowed", Toast.LENGTH_SHORT)
-                                                .show()
-                                    } else {
-                                        homeViewModel.addFavoriteApp(app)
-                                        Toast
-                                                .makeText(context, "Favorite Added", Toast.LENGTH_SHORT)
-                                                .show()
+                    items(
+                            items = appList,
+                            itemContent = {
+                                ListItem(modifier = Modifier
+                                        .height(50.dp)
+                                        .fillMaxWidth()
+                                        .clickable(onClick = {
+                                            launcherActivity.startActivity(launcherActivity.packageManager.getLaunchIntentForPackage(it.packageName))
+                                        })
+                                        .longPressGestureFilter { _: Offset ->
+                                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            if (appList.size == 5) {
+                                                Toast
+                                                        .makeText(context, "Only 5 Apps Allowed", Toast.LENGTH_SHORT)
+                                                        .show()
+                                            } else {
+                                                homeViewModel.addFavoriteApp(it)
+                                                Toast
+                                                        .makeText(context, "Favorite Added", Toast.LENGTH_SHORT)
+                                                        .show()
+                                            }
+                                        }) {
+                                    Row(modifier = Modifier.fillMaxWidth()) {
+                                        var horizontalPadding = 0.dp
+                                        if (showLauncherIcons) {
+                                            horizontalPadding = 8.dp
+                                            AndroidView(viewBlock = { context ->
+                                                val imageView = ImageView(context)
+                                                imageView.setImageDrawable(it.launcherIconRes)
+                                                return@AndroidView imageView
+                                            }, modifier = Modifier.size(36.dp))
+                                        }
+                                        Text(text = it.appName, color = Color.White, modifier = Modifier
+                                                .padding(horizontal = horizontalPadding)
+                                                .align(Alignment.CenterVertically))
                                     }
-                                }) {
-                            Row(modifier = Modifier.fillMaxWidth()) {
-                                var horizontalPadding = 0.dp
-                                if (showLauncherIcons) {
-                                    horizontalPadding = 8.dp
-                                    AndroidView(viewBlock = { context ->
-                                        val imageView = ImageView(context)
-                                        imageView.setImageDrawable(app.launcherIconRes)
-                                        return@AndroidView imageView
-                                    }, modifier = Modifier.size(36.dp))
                                 }
-                                Text(text = app.appName, color = Color.White, modifier = Modifier
-                                        .padding(horizontal = horizontalPadding)
-                                        .align(Alignment.CenterVertically))
                             }
-                        }
-                    }
-
-//                    Log.d("TAG", "DrawerContent: ${scrollState.maxValue}")
-
+                    )
                 }
 
                 Column(modifier = Modifier
@@ -448,12 +446,9 @@ fun DrawerContent(screenState: MutableState<LauncherScreen>, launcherActivity: L
                                                 selectedIndex = index
 //                                                val scrollHeightPerRow = scrollState.maxValue.div(appList.size)
 
-                                                withContext(AmbientContext.current, scrollState.snapToItemIndex(indexToScrollTo, 0))
-                                                CoroutineScope(AmbientContext.current)
-                                                coroutineScope {
-
+                                                CoroutineScope(Dispatchers.Main).launch {
+                                                    scrollState.snapToItemIndex(indexToScrollTo, 0)
                                                 }
-
 //                                                scrollState.smoothScrollTo((scrollHeightPerRow.times(indexToScrollTo)))
                                             })
                                             .padding(vertical = 2.dp, horizontal = 8.dp)
@@ -478,7 +473,7 @@ fun SettingsContent(screenState: MutableState<LauncherScreen>, launcherActivity:
                     IconButton(onClick = {
                         screenState.value = LauncherScreen.HOME
                     }) {
-                        Image(imageVector = Icons.Default.Close, colorFilter = ColorFilter.tint(Color.White))
+                        Image(imageVector = Icons.Default.Close, contentDescription = "", colorFilter = ColorFilter.tint(Color.White))
                     }
                 }, backgroundColor = MaterialTheme.colors.primary)
             },

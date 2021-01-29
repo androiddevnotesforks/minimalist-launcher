@@ -71,7 +71,8 @@ class HomeViewModel @ViewModelInject constructor(
 
     fun filterAppBySearch(searchChars : String){
         Log.d("TAG", "filterAppBySearch: $searchChars")
-        val filteredList = launcherApplications.value!!.filter { it.appName.contentEquals(searchChars) }
+        val filteredList = launcherApplications.value!!.filter { it.appName.contains(searchChars) }
+        Log.d("TAG", "filterAppBySearch: ${filteredList.size}")
         _filteredLauncherApplications.postValue(filteredList.toMutableList())
     }
 }
