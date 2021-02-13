@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.*
 import androidx.compose.material.Text
@@ -60,6 +61,7 @@ import java.util.*
 import kotlin.math.roundToInt
 
 @ExperimentalLayout
+@ExperimentalMaterialApi
 @AndroidEntryPoint
 class LauncherActivity : AppCompatActivity() {
     private val homeViewModel: HomeViewModel by viewModels()
@@ -79,11 +81,11 @@ class LauncherActivity : AppCompatActivity() {
             fetchAppList(this@LauncherActivity, homeViewModel)
             val screenState = remember { mutableStateOf(LauncherScreen.HOME) }
             val colorPalette = remember { mutableStateOf(listOfColorPalette.find { it.themeName == homeViewModel.getTheme() }!!.themeColors) }
-            val typography = remember { mutableStateOf(listOfTypes[0].typography) }
+//            val typography = remember { mutableStateOf(listOfTypes[0].typography) }
 
             val systemUiController = remember { SystemUiController(window) }
             Providers(SystemUiControllerAmbient provides systemUiController) {
-                MinimalLauncherTheme(colors = colorPalette.value, type = typography.value) {
+                MinimalLauncherTheme(colors = colorPalette.value) {
                     val sysUiController = SystemUiControllerAmbient.current
                     sysUiController.setSystemBarsColor(
                             color = MaterialTheme.colors.primary
@@ -91,7 +93,7 @@ class LauncherActivity : AppCompatActivity() {
 
                     Scaffold(
                             bodyContent = {
-                                ShowBodyContent(screenState = screenState, launcherActivity = this@LauncherActivity, homeViewModel = homeViewModel, colorPalette, typography)
+                                ShowBodyContent(screenState = screenState, launcherActivity = this@LauncherActivity, homeViewModel = homeViewModel, colorPalette)
                             }
                     )
                 }
@@ -135,10 +137,11 @@ private fun makeRequest(activity: Activity) {
             101)
 }
 
+@ExperimentalMaterialApi
 @ExperimentalFoundationApi
 @ExperimentalLayout
 @Composable
-private fun ShowBodyContent(screenState: MutableState<LauncherScreen>, launcherActivity: LauncherActivity, homeViewModel: HomeViewModel, colorPalette: MutableState<Colors>, typography: MutableState<androidx.compose.material.Typography>) {
+private fun ShowBodyContent(screenState: MutableState<LauncherScreen>, launcherActivity: LauncherActivity, homeViewModel: HomeViewModel, colorPalette: MutableState<Colors>) {
     val appList by homeViewModel.launcherApplications.observeAsState()
 
     appList?.let {
@@ -154,12 +157,13 @@ private fun ShowBodyContent(screenState: MutableState<LauncherScreen>, launcherA
 //            }
             }
             LauncherScreen.SETTINGS -> {
-                SettingsContent(screenState = screenState, launcherActivity = launcherActivity, homeViewModel = homeViewModel, appList = appList!!, colorPalette, typography)
+                SettingsContent(screenState = screenState, launcherActivity = launcherActivity, homeViewModel = homeViewModel, appList = appList!!, colorPalette)
             }
         }
     }
 }
 
+@ExperimentalMaterialApi
 @ExperimentalFoundationApi
 @ExperimentalLayout
 @Composable
@@ -300,18 +304,16 @@ fun HomeContent(screenState: MutableState<LauncherScreen>, launcherActivity: Lau
                                     keyboardController.showSoftwareKeyboard()
                                 },
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                                onImeActionPerformed = {
-                                    if (it == ImeAction.Search) {
-                                        val searchIntent = Intent(Intent.ACTION_VIEW)
-                                        searchIntent.data = Uri.parse("https://duckduckgo.com/q=" + searchInput.text)
+                                keyboardActions = KeyboardActions(onDone = {
+                                    val searchIntent = Intent(Intent.ACTION_VIEW)
+                                    searchIntent.data = Uri.parse("https://duckduckgo.com/q=" + searchInput.text)
 
-                                        searchIntent.`package` = "com.duckduckgo.mobile.android"
-                                        launcherActivity.startActivity(searchIntent)
+                                    searchIntent.`package` = "com.duckduckgo.mobile.android"
+                                    launcherActivity.startActivity(searchIntent)
 
-                                        searchInput = TextFieldValue("")
+                                    searchInput = TextFieldValue("")
+                                })
 
-                                    }
-                                },
                         )
                     }
                 }
@@ -320,6 +322,7 @@ fun HomeContent(screenState: MutableState<LauncherScreen>, launcherActivity: Lau
     }
 }
 
+@ExperimentalMaterialApi
 @ExperimentalFoundationApi
 @ExperimentalLayout
 @Composable
@@ -336,12 +339,14 @@ fun DrawerContent(screenState: MutableState<LauncherScreen>, launcherActivity: L
             .background(MaterialTheme.colors.primary)) {
         Column(Modifier.fillMaxSize()) {
             Row(modifier = Modifier.fillMaxWidth()) {
-                Card(modifier = Modifier
-                        .fillMaxWidth()
+                Card(modifier = Modifier.fillMaxWidth()
                         .padding(horizontal = 16.dp)
                         .padding(top = 16.dp, bottom = 16.dp)
-                        .background(color = Color.LightGray)
-                        .wrapContentSize(), shape = RoundedCornerShape(30.dp), backgroundColor = gray) {
+                        .background(color = Color.Transparent)
+                        .wrapContentSize(),
+                        shape = RoundedCornerShape(30.dp),
+                        backgroundColor = gray,
+                ) {
                     Row(modifier = Modifier.fillMaxWidth()) {
                         var searchInput by remember { mutableStateOf(TextFieldValue("Search apps")) }
                         BasicTextField(
@@ -464,9 +469,10 @@ fun DrawerContent(screenState: MutableState<LauncherScreen>, launcherActivity: L
 
 fun getFirstAppFromChar(char: String, appList: MutableList<LauncherApplication>): LauncherApplication? = appList.find { it.appName.startsWith(char) }
 
+@ExperimentalMaterialApi
 @ExperimentalLayout
 @Composable
-fun SettingsContent(screenState: MutableState<LauncherScreen>, launcherActivity: LauncherActivity, homeViewModel: HomeViewModel, appList: MutableList<LauncherApplication>, colorPalette: MutableState<Colors>, typography: MutableState<androidx.compose.material.Typography>) {
+fun SettingsContent(screenState: MutableState<LauncherScreen>, launcherActivity: LauncherActivity, homeViewModel: HomeViewModel, appList: MutableList<LauncherApplication>, colorPalette: MutableState<Colors>) {
     Scaffold(
             topBar = {
                 TopAppBar(title = { Text(text = "Settings", color = Color.White) }, navigationIcon = {
@@ -502,12 +508,9 @@ fun SettingsContent(screenState: MutableState<LauncherScreen>, launcherActivity:
                             inactiveColor = Color.White,
                             activeColor = Color.White,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                            onImeActionPerformed = { imeAction, softwareKeyboard ->
-                                if (imeAction == ImeAction.Done) {
+                            keyboardActions = KeyboardActions(onDone = {
                                     homeViewModel.saveZipCode(weatherLocation.text)
-                                    softwareKeyboard?.hideSoftwareKeyboard()
-                                }
-                            },
+                            }),
                             onTextInputStarted = { softwareKeyboardController ->
                                 softwareKeyboardController.showSoftwareKeyboard()
                             }
@@ -557,25 +560,25 @@ fun SettingsContent(screenState: MutableState<LauncherScreen>, launcherActivity:
 //                        }
 //                    }
 
-                    Text(
-                            text = "Font",
-                            style = MaterialTheme.typography.h6,
-                            color = Color.White,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                    )
+//                    Text(
+//                            text = "Font",
+//                            style = MaterialTheme.typography.h6,
+//                            color = Color.White,
+//                            modifier = Modifier.padding(vertical = 8.dp)
+//                    )
 
-                    listOfTypes.forEach {
-                        Text(
-                                text = it.typeName,
-                                style = it.typography.body1,
-                                color = Color.White,
-                                modifier = Modifier
-                                        .padding(vertical = 8.dp, horizontal = 8.dp)
-                                        .clickable(onClick = {
-                                            typography.value = it.typography
-                                        })
-                        )
-                    }
+//                    listOfTypes.forEach {
+//                        Text(
+//                                text = it.typeName,
+//                                style = it.typography.body1,
+//                                color = Color.White,
+//                                modifier = Modifier
+//                                        .padding(vertical = 8.dp, horizontal = 8.dp)
+//                                        .clickable(onClick = {
+//                                            typography.value = it.typography
+//                                        })
+//                        )
+//                    }
 
                     var showLauncherIcons by remember { mutableStateOf(homeViewModel.getShowLauncherIcons()) }
 
@@ -603,6 +606,7 @@ fun SettingsContent(screenState: MutableState<LauncherScreen>, launcherActivity:
 
 }
 
+@ExperimentalMaterialApi
 @ExperimentalLayout
 fun fetchAppList(launcherActivity: LauncherActivity, homeViewModel: HomeViewModel) {
     val appList: MutableList<LauncherApplication> = mutableListOf()
