@@ -1,7 +1,7 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
 buildscript {
-    ext.compose_version = '1.0.0-alpha12'
+    ext.compose_version = '1.0.0-beta01'
     ext.kotlin_version = "1.4.30"
 
     repositories {
@@ -9,7 +9,7 @@ buildscript {
         jcenter()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:7.0.0-alpha06'
+        classpath 'com.android.tools.build:gradle:7.0.0-alpha08'
         classpath 'com.google.dagger:hilt-android-gradle-plugin:2.28-alpha'
         classpath"org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
