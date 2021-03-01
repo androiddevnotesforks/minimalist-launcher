@@ -17,6 +17,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.AppCompatImageView
+import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -58,6 +59,7 @@ import java.util.*
 import kotlin.math.roundToInt
 
 @ExperimentalMaterialApi
+@ExperimentalAnimationApi
 @AndroidEntryPoint
 class LauncherActivity : AppCompatActivity() {
     private val homeViewModel: HomeViewModel by viewModels()
@@ -140,6 +142,7 @@ private fun makeRequest(activity: Activity) {
     )
 }
 
+@ExperimentalAnimationApi
 @ExperimentalMaterialApi
 @ExperimentalFoundationApi
 @Composable
@@ -155,39 +158,32 @@ private fun ShowBodyContent(
     appList?.let {
         when (screenState.value) {
             LauncherScreen.HOME -> {
-//            Crossfade(current = screenState.value, animation = tween(1000)) {
                 HomeContent(
                     modifier = modifier,
                     screenState = screenState,
                     launcherActivity = launcherActivity,
                     homeViewModel = homeViewModel,
-                    appList = appList!!
+                    appList = appList!!,
                 )
 //            }
             }
             LauncherScreen.DRAWER -> {
-//            Crossfade(current = screenState.value, animation = tween(1000)) {
                 DrawerContent(
                     screenState = screenState,
                     launcherActivity = launcherActivity,
                     homeViewModel = homeViewModel,
                     appList = appList!!
                 )
-//            }
             }
             LauncherScreen.SETTINGS -> {
-                SettingsContent(
-                    screenState = screenState,
-                    launcherActivity = launcherActivity,
-                    homeViewModel = homeViewModel,
-                    appList = appList!!,
-                    colorPalette
-                )
+
+
             }
         }
     }
 }
 
+@ExperimentalAnimationApi
 @ExperimentalMaterialApi
 @ExperimentalFoundationApi
 @Composable
@@ -196,187 +192,203 @@ fun HomeContent(
     launcherActivity: LauncherActivity,
     homeViewModel: HomeViewModel,
     appList: MutableList<LauncherApplication>,
-    modifier: Modifier
+    modifier: Modifier,
 ) {
     val context = LocalContext.current
     val hapticFeedback = LocalHapticFeedback.current
 
-    Column(modifier = Modifier.fillMaxSize(), content = {
-        Box(modifier = Modifier
-            .fillMaxSize()
-//                .draggable(
-//                    orientation = Orientation.Horizontal,
-//                    onDrag = {
-//                        screenState.value = LauncherScreen.DRAWER
-//                    }
-//                )
-            .pointerInput(Unit) {
-                detectTapGestures(onLongPress = { _: Offset ->
-                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                    screenState.value = LauncherScreen.SETTINGS
-                })
-            }
-            .pointerInput(Unit) {
-                detectHorizontalDragGestures(onHorizontalDrag = { _, _ ->
-                    screenState.value = LauncherScreen.DRAWER
-                })
-            }
-        ) {
+    var showSettings by remember { mutableStateOf(false) }
 
-            SetBackground()
+    Box() {
 
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(1 / 2f)
-                    .align(Alignment.Center),
-                color = Color.Transparent
+        Column(modifier = Modifier.fillMaxSize(), content = {
+            Box(modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectTapGestures(onLongPress = { _: Offset ->
+                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                        showSettings = true
+//                    screenState.value = LauncherScreen.SETTINGS
+                    })
+                }
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(onHorizontalDrag = { _, _ ->
+                        screenState.value = LauncherScreen.DRAWER
+                    })
+                }
             ) {
-                Column(modifier = Modifier.padding(horizontal = 30.dp)) {
-                    if (homeViewModel.favoriteApps.isEmpty()) {
-                        Text(
-                            text = "Swipe right and long press\non 7 apps! \n\n\n -->",
-                            style = MaterialTheme.typography.h5,
-                            color = Color.White
-                        )
-                    } else {
-                        homeViewModel.favoriteApps.forEach { appName ->
+
+                SetBackground()
+
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(1 / 2f)
+                        .align(Alignment.Center),
+                    color = Color.Transparent
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 30.dp)) {
+                        if (homeViewModel.favoriteApps.isEmpty()) {
                             Text(
-                                text = appName,
+                                text = "Swipe right and long press\non 7 apps! \n\n\n -->",
                                 style = MaterialTheme.typography.h5,
-                                color = Color.White,
-                                modifier = Modifier
-                                    .clickable(
-                                        onClick = {
-                                            val app = appList.find { it.appName == appName }
-                                            launcherActivity.startActivity(
-                                                launcherActivity.packageManager.getLaunchIntentForPackage(
-                                                    app!!.packageName
+                                color = Color.White
+                            )
+                        } else {
+                            homeViewModel.favoriteApps.forEach { appName ->
+                                Text(
+                                    text = appName,
+                                    style = MaterialTheme.typography.h5,
+                                    color = Color.White,
+                                    modifier = Modifier
+                                        .padding(vertical = 16.dp)
+                                        .pointerInput(Unit) {
+                                            detectTapGestures(onLongPress = { _: Offset ->
+                                                hapticFeedback.performHapticFeedback(
+                                                    HapticFeedbackType.LongPress
                                                 )
-                                            )
-                                        })
-                                    .padding(vertical = 16.dp)
-                                    .pointerInput(Unit) {
-                                        detectTapGestures(onLongPress = { _: Offset ->
-                                            hapticFeedback.performHapticFeedback(
-                                                HapticFeedbackType.LongPress
-                                            )
-                                            homeViewModel.removeFavorite(appName)
-                                        })
-                                    }
+                                                homeViewModel.removeFavorite(appName)
+                                            }, onTap = { offset ->
+                                                val app = appList.find { it.appName == appName }
+                                                launcherActivity.startActivity(
+                                                    launcherActivity.packageManager.getLaunchIntentForPackage(
+                                                        app!!.packageName
+                                                    )
+                                                )
+                                            })
+                                        }
+                                )
+                            }
+                        }
+
+                    }
+                }
+
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(1 / 4f)
+                        .align(Alignment.TopCenter)
+                        .padding(top = 40.dp),
+                    color = Color.Transparent
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 30.dp, vertical = 20.dp)) {
+                        AndroidView(factory = { context ->
+                            return@AndroidView View.inflate(context, R.layout.text_clock, null)
+                        })
+
+                        val weatherData by homeViewModel.weatherData.observeAsState()
+                        weatherData?.let {
+                            Text(
+                                text = it.main.temp.roundToInt().toString() + "°F  " +
+                                        "${it.weather[0].description.capitalize(Locale.getDefault())}",
+                                color = Color.White, style = MaterialTheme.typography.h6,
+                                modifier = Modifier.padding(top = 8.dp)
                             )
                         }
-                    }
 
-                }
-            }
-
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(1 / 4f)
-                    .align(Alignment.TopCenter)
-                    .padding(top = 40.dp),
-                color = Color.Transparent
-            ) {
-                Column(modifier = Modifier.padding(horizontal = 30.dp, vertical = 20.dp)) {
-                    AndroidView(factory = { context ->
-                        return@AndroidView View.inflate(context, R.layout.text_clock, null)
-                    })
-
-                    val weatherData by homeViewModel.weatherData.observeAsState()
-                    weatherData?.let {
                         Text(
-                            text = it.main.temp.roundToInt().toString() + "°F  " +
-                                    "${it.weather[0].description.capitalize(Locale.getDefault())}",
+                            text = "${
+                                LocalDate.now().dayOfWeek.name.toLowerCase().capitalize()
+                            }, " +
+                                    "${
+                                        LocalDate.now().month.name.toLowerCase().capitalize()
+                                    } " +
+                                    "${LocalDate.now().dayOfMonth}",
                             color = Color.White, style = MaterialTheme.typography.h6,
                             modifier = Modifier.padding(top = 8.dp)
                         )
                     }
-
-                    Text(
-                        text = "${
-                            LocalDate.now().dayOfWeek.name.toLowerCase().capitalize()
-                        }, " +
-                                "${
-                                    LocalDate.now().month.name.toLowerCase().capitalize()
-                                } " +
-                                "${LocalDate.now().dayOfMonth}",
-                        color = Color.White, style = MaterialTheme.typography.h6,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
                 }
-            }
 
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(1 / 4f)
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 10.dp),
-                color = Color.Transparent
-            ) {
-                Row(
+                Surface(
                     modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(1 / 4f)
                         .align(Alignment.BottomCenter)
-                        .wrapContentHeight(Alignment.Bottom)
+                        .padding(bottom = 30.dp),
+                    color = Color.Transparent
                 ) {
-                    Card(
+                    Row(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 30.dp)
-                            .wrapContentSize(),
-                        shape = RoundedCornerShape(30.dp),
-                        backgroundColor = Color.DarkGray
+                            .align(Alignment.BottomCenter)
+                            .wrapContentHeight(Alignment.Bottom)
                     ) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 30.dp)
+                                .wrapContentSize(),
+                            shape = RoundedCornerShape(30.dp),
+                            backgroundColor = Color.DarkGray
+                        ) {
 
-                        Row(modifier = Modifier.fillMaxWidth()) {
-                            Image(
-                                painter = painterResource(id = R.drawable.ic_duckduckgo),
-                                contentDescription = "Duck Duck Go Icon",
-                                modifier = Modifier
-                                    .requiredSize(48.dp)
-                                    .align(Alignment.CenterVertically)
-                                    .padding(start = 10.dp)
-                            )
+                            Row(modifier = Modifier.fillMaxWidth()) {
+                                Image(
+                                    painter = painterResource(id = R.drawable.ic_duckduckgo),
+                                    contentDescription = "Duck Duck Go Icon",
+                                    modifier = Modifier
+                                        .requiredSize(48.dp)
+                                        .align(Alignment.CenterVertically)
+                                        .padding(start = 10.dp)
+                                )
 
-                            var searchInput by remember { mutableStateOf(TextFieldValue("")) }
+                                var searchInput by remember { mutableStateOf(TextFieldValue("")) }
 
-                            BasicTextField(
-                                value = searchInput,
-                                onValueChange = {
-                                    searchInput = it
-                                },
-                                textStyle = TextStyle(color = Color.White),
-                                cursorBrush = SolidColor(Color.White),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(20.dp)
-                                    .height(20.dp),
+                                BasicTextField(
+                                    value = searchInput,
+                                    onValueChange = {
+                                        searchInput = it
+                                    },
+                                    textStyle = TextStyle(color = Color.White),
+                                    cursorBrush = SolidColor(Color.White),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(20.dp)
+                                        .height(20.dp),
 //                                    onTextInputStarted = { keyboardController ->
 //                                        keyboardController.showSoftwareKeyboard()
 //                                    },
-                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                                keyboardActions = KeyboardActions(onDone = {
-                                    val searchIntent = Intent(Intent.ACTION_VIEW)
-                                    searchIntent.data =
-                                        Uri.parse("https://duckduckgo.com/q=" + searchInput.text)
+                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                    keyboardActions = KeyboardActions(onDone = {
+                                        val searchIntent = Intent(Intent.ACTION_VIEW)
+                                        searchIntent.data =
+                                            Uri.parse("https://duckduckgo.com/q=" + searchInput.text)
 
-                                    searchIntent.`package` = "com.duckduckgo.mobile.android"
-                                    launcherActivity.startActivity(searchIntent)
+                                        searchIntent.`package` = "com.duckduckgo.mobile.android"
+                                        launcherActivity.startActivity(searchIntent)
 
-                                    searchInput = TextFieldValue("")
-                                })
+                                        searchInput = TextFieldValue("")
+                                    })
 
-                            )
+                                )
+                            }
                         }
                     }
                 }
             }
+        })
+
+        val hideSettings = { showSettings = !showSettings }
+        AnimatedVisibility(
+            visible = showSettings,
+            enter = slideInVertically(
+                initialOffsetY = { 100 }
+            ) + fadeIn(initialAlpha = 0.3f),
+            exit = slideOutVertically(targetOffsetY = {100}) + fadeOut(targetAlpha = 0.3f)
+        ) {
+            SettingsContent(
+                screenState = screenState,
+                launcherActivity = launcherActivity,
+                homeViewModel = homeViewModel,
+                appList = appList!!,
+                hideSettings = hideSettings
+            )
         }
-    })
+    }
 }
 
+@ExperimentalAnimationApi
 @ExperimentalMaterialApi
 @ExperimentalFoundationApi
 @Composable
@@ -402,10 +414,15 @@ fun DrawerContent(
 
         SetBackground()
 
-        Column(Modifier.fillMaxSize().background(color = Color(0x4DA9A9A9))) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .background(color = Color(0x4DA9A9A9))
+        ) {
             Row(modifier = Modifier.fillMaxWidth()) {
                 Card(
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
                         .padding(horizontal = 16.dp)
                         .padding(top = 60.dp, bottom = 16.dp)
                         .wrapContentSize(),
@@ -460,6 +477,13 @@ fun DrawerContent(
 
                                 screenState.value = LauncherScreen.HOME
                             }
+
+//                            detectVerticalDragGestures { change, dragAmount ->
+//                                if(scrollState.firstVisibleItemIndex == 0){
+//                                } else {
+//
+//                                }
+//                            }
                         }, state = scrollState
                 ) {
                     items(
@@ -468,21 +492,14 @@ fun DrawerContent(
                             ListItem(modifier = Modifier
                                 .height(50.dp)
                                 .fillMaxWidth()
-                                .clickable(onClick = {
-                                    launcherActivity.startActivity(
-                                        launcherActivity.packageManager.getLaunchIntentForPackage(
-                                            it.packageName
-                                        )
-                                    )
-                                })
                                 .pointerInput(Unit) {
                                     detectTapGestures(onLongPress = { _: Offset ->
                                         hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        if (appList.size == 5) {
+                                        if (appList.size == 6) {
                                             Toast
                                                 .makeText(
                                                     context,
-                                                    "Only 5 Apps Allowed",
+                                                    "Only 6 Apps Allowed",
                                                     Toast.LENGTH_SHORT
                                                 )
                                                 .show()
@@ -496,6 +513,12 @@ fun DrawerContent(
                                                 )
                                                 .show()
                                         }
+                                    }, onTap = { offset ->
+                                        launcherActivity.startActivity(
+                                            launcherActivity.packageManager.getLaunchIntentForPackage(
+                                                it.packageName
+                                            )
+                                        )
                                     })
                                 }) {
                                 Row(modifier = Modifier.fillMaxWidth()) {
@@ -591,6 +614,7 @@ fun getFirstAppFromChar(
     appList: MutableList<LauncherApplication>
 ): LauncherApplication? = appList.find { it.appName.startsWith(char) }
 
+@ExperimentalAnimationApi
 @ExperimentalMaterialApi
 @Composable
 fun SettingsContent(
@@ -598,7 +622,7 @@ fun SettingsContent(
     launcherActivity: LauncherActivity,
     homeViewModel: HomeViewModel,
     appList: MutableList<LauncherApplication>,
-    colorPalette: MutableState<Colors>
+    hideSettings: () -> Unit,
 ) {
 
 //    BackHandler(onBack = {
@@ -608,11 +632,10 @@ fun SettingsContent(
 //    val backPressedDispatcher = LocalOnBackPressedDispatcherOwner.current.onBackPressedDispatcher
 
     Scaffold(
+        modifier = Modifier.padding(top = 56.dp),
         topBar = {
             TopAppBar(title = { Text(text = "Settings", color = Color.White) }, navigationIcon = {
-                IconButton(onClick = {
-                    screenState.value = LauncherScreen.HOME
-                }) {
+                IconButton(onClick = hideSettings) {
                     Image(
                         imageVector = Icons.Default.Close,
                         contentDescription = "",
@@ -744,6 +767,7 @@ fun SettingsContent(
 
 }
 
+@ExperimentalAnimationApi
 @ExperimentalMaterialApi
 fun fetchAppList(launcherActivity: LauncherActivity, homeViewModel: HomeViewModel) {
     val appList: MutableList<LauncherApplication> = mutableListOf()
