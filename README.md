@@ -1,13 +1,9 @@
 # Min Launcher
-  
-  
+
 <p align="center">
-<img src="https://raw.githubusercontent.com/Collinux/minimalist-launcher/master/launcher_main.png" width="230"><br>
+<img src="/metadata/homescreen.png" width="230"><img src="/metadata/app_drawer.png" width="230"><br>
 <b>Super lightweight app launcher with a low memory usage and small install size. Lightning fast on any device including support for the first version of Android.</b><br><br>
 </p>
 
-### Philosophy
-  Most modern launchers encourage poor behavioral patterns that grab your attention, leading to constant use of non-productive applications. The objective of a home screen is to enable users to find and launch the apps they need as fast as possible. This launcher goes back to the fundementals of user interation with mobile devices by making the experience quick, simple, and productive.
-
-### Free & Open Source
-   There are no trackers, no ads, and no device permissions. Peer reviewed code under a GPLv2 license.
+### About ###
+Offers App Favorites to display on the homepage. Also offers vertical app drawer with alphabet sort and search capabilities 
