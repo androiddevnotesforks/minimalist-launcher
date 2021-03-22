@@ -6,4 +6,5 @@
 </p>
 
 ### About ###
-Offers App Favorites to display on the homepage. Also offers vertical app drawer with alphabet sort and search capabilities 
+All UI written in Jetpack Compose this Launcher offers 6 App Favorites to display on the homepage. 
+Also offers vertical app drawer with alphabet sort and search capabilities 
